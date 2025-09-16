@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum Role{
+  user
+  admin
+}
+
+enum Status{
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id            Int         @id @default(autoincrement())
+  username      String      @unique
+  password      String
+  email         String      @unique
+  role          Role        @default(user)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  events        Event[]     @relation("EventCreator")
+  registrations Registration[]
+}
+
+model Event {
+  id                  Int         @id @default(autoincrement())
+  title               String
+  description         String?
+  date                DateTime
+  location            String
+  capacity            Int
+  currentRegistrations Int         @default(0)
+  status              Status @default(pending)
+  creatorId           Int
+  creator             User        @relation("EventCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt           DateTime    @default(now())
+  registrations       Registration[]
+  @@index([date])
+  @@index([location])
+}
+
+model Registration {
+  id            Int      @id @default(autoincrement())
+  eventId       Int
+  userId        Int
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registeredAt  DateTime @default(now())
+  @@unique([eventId, userId])
+  @@index([eventId])
+}
