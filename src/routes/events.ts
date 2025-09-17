@@ -28,7 +28,6 @@ const ValidateData = (data: EventData) => {
     }
 };
 
-
 router.post('/', authenticate, async (req: Request & { user?: { id: number } }, res: Response) => {
     try {
         ValidateData(req.body);
@@ -48,6 +47,26 @@ router.post('/', authenticate, async (req: Request & { user?: { id: number } }, 
         res.status(400).json({ error: err.message });
     }
 });
+
+
+router.put("/approve/:id", authenticate, isAdmin, async (req: Request, res: Response) => {
+
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: "Invalid Status" });
+    }
+
+    try {
+        const event = await prisma.event.update({
+            where: { id: Number(id) },
+            data: { status: status as "approved" | "rejected" },
+        });
+        res.json(event)
+    } catch (err: any) {
+        res.status(500).json({ error: err.message })
+    }
+})
 
 
 router.put("/:id", authenticate, async (req: Request & { user?: { id: number; role: string } }, res: Response) => {
@@ -119,29 +138,31 @@ router.delete("/:id", authenticate, async (req: Request & { user?: { id: number;
 })
 
 
-router.put("/:id/approve", authenticate, isAdmin, async (req: Request, res: Response) => {
 
-    const { id } = req.params;
-    const { status } = req.body;
-    if (!['approved', 'rejected'].includes(status)) {
-        return res.status(400).json({ error: "Invalid Status" });
-    }
 
+
+router.get('/all', async (req: Request, res: Response) => {
     try {
-        const event = await prisma.event.update({
-            where: { id: Number(id) },
-            data: { status: status as "approved" | "rejected" },
+        const events = await prisma.event.findMany({
+            orderBy: [{ date: 'asc' }],
+            include: {
+                _count: {
+                    select: { registrations: true },
+                },
+            },
         });
-        res.json(event)
+
+        if (events.length > 0) {
+            res.json(events);
+        } else {
+            res.status(404).json({ message: 'No events found' });
+        }
     } catch (err: any) {
-        res.status(500).json({ error: err.message })
+        res.status(500).json({ error: "Cannot fetch all the events" });
     }
-})
-
-
+});
 
 router.get("/", async (req: Request, res: Response) => {
-
     const { date, location } = req.query;
     try {
         const events = await prisma.event.findMany({
@@ -165,11 +186,9 @@ router.get("/", async (req: Request, res: Response) => {
 
         res.json(events);
     } catch (err: any) {
-        res.status(500).json({ error: err.message })
+        res.status(500).json({ error: "Add location & Date" });
     }
-})
-
-
+});
 
 
 export default router;
